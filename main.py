@@ -1,18 +1,33 @@
+import os
 from fastapi import FastAPI
-from pydantic import BaseModel
-import os 
+from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 
-load_dotenv # Load environment variables from the .env file
+from routers.chat import router as chat_router
+from routers.conversations import router as conversations_router
 
-app = FastAPI() # Create a FastAPI server object
+load_dotenv()  # Load .env into os.environ before anything reads env vars
+
+app = FastAPI(title="Nexus")
+
+# --- CORS ---
+# Read allowed origins from env (comma-separated), fall back to localhost for dev
+_origins_raw = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000")
+origins = [o.strip() for o in _origins_raw.split(",")]  # Split on comma to support multiple origins
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_methods=["GET", "POST", "DELETE"],
+    allow_headers=["Authorization", "Content-Type"],
+)
+
+# --- Routers ---
+app.include_router(chat_router)
+app.include_router(conversations_router)
 
 
-class QueryRequest(BaseModel): # Define a Pydantic model for the query request body
-    prompt: str # The prompt to be processed
-
-@app.post("/query") # Define a POST endpoint at /query
-
-def handle_query(request: QueryRequest): # Handle the incoming query request
-    return{"prompt_recieved": request.prompt} # Return the received prompt as a response
-    
+# --- Health check (required by Railway) ---
+@app.get("/health")
+async def health():
+    return {"status": "ok"}
