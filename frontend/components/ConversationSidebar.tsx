@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Conversation, getConversations, getMessages, deleteConversation } from "@/lib/api";
+import { useState } from "react";
+import { Conversation, getMessages, deleteConversation } from "@/lib/api";
 import { ChatMessage } from "@/hooks/useChat";
 
 interface Props {
@@ -93,16 +93,6 @@ function SidebarContent({
 export default function ConversationSidebar({ activeId, isOpen, onClose, onSelect, onNewChat }: Props) {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
-
-  useEffect(() => {
-    getConversations().then(setConversations).catch(() => {});
-  }, []);
-
-  useEffect(() => {
-    if (activeId) {
-      getConversations().then(setConversations).catch(() => {});
-    }
-  }, [activeId]);
 
   async function handleSelect(id: string) {
     const msgs = await getMessages(id);

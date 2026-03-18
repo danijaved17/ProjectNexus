@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import MessageBubble from "./MessageBubble";
-import { ChatMessage } from "@/hooks/useChat";
+import ScoresPanel from "./ScoresPanel";
+import { ChatMessage, ScoresPayload } from "@/hooks/useChat";
 
 const SESSION_LIMIT = 5;
 
@@ -224,6 +225,8 @@ interface Props {
   isLoading: boolean;
   error: string | null;
   terms: string[];
+  scores: ScoresPayload | null;
+  followUp: string | null;
   promptsUsed: number;
   isMaster: boolean;
   sidebarOpen: boolean;
@@ -237,6 +240,8 @@ export default function ChatPanel({
   isLoading,
   error,
   terms,
+  scores,
+  followUp,
   promptsUsed,
   isMaster,
   sidebarOpen,
@@ -341,6 +346,13 @@ export default function ChatPanel({
                 <div className="bg-red-900/30 border border-red-800 text-red-400 rounded-2xl px-4 py-3 text-sm max-w-[85%] md:max-w-[70%]">
                   {error}
                 </div>
+              </div>
+            )}
+
+            {/* Mobile-only inline scores — hidden on md+ where side panel shows */}
+            {scores && (
+              <div className="md:hidden mt-4">
+                <ScoresPanel scores={scores} followUp={followUp} onFollowUp={onSend} inline />
               </div>
             )}
 

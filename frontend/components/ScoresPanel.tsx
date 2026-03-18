@@ -4,9 +4,10 @@ interface Props {
   scores: ScoresPayload | null;
   followUp: string | null;
   onFollowUp: (question: string) => void;
+  inline?: boolean;
 }
 
-export default function ScoresPanel({ scores, followUp, onFollowUp }: Props) {
+export default function ScoresPanel({ scores, followUp, onFollowUp, inline = false }: Props) {
   if (!scores) return null;
 
   const sorted = [...scores.responses].sort((a, b) => {
@@ -18,7 +19,7 @@ export default function ScoresPanel({ scores, followUp, onFollowUp }: Props) {
   const maxScore = Math.max(...sorted.map((r) => r.score));
 
   return (
-    <div className="w-72 border-l border-[#1e1e1e] bg-[#0f0f0f] flex flex-col overflow-y-auto">
+    <div className={inline ? "w-full border-t border-[#1e1e1e] bg-[#0f0f0f]" : "w-72 border-l border-[#1e1e1e] bg-[#0f0f0f] flex flex-col overflow-y-auto"}>
       {/* Header */}
       <div className="px-5 pt-5 pb-4">
         <p className="text-[#888] text-[10px] font-semibold uppercase tracking-widest mb-0.5">

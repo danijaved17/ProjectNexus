@@ -45,6 +45,8 @@ export default function Home() {
         isLoading={isLoading}
         error={error}
         terms={terms}
+        scores={scores}
+        followUp={followUp}
         promptsUsed={promptsUsed}
         isMaster={isMaster}
         sidebarOpen={sidebarOpen}
