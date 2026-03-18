@@ -19,7 +19,8 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
     allow_methods=["GET", "POST", "DELETE"],
-    allow_headers=["Authorization", "Content-Type"],
+    allow_headers=["Authorization", "Content-Type", "X-Session-Id", "X-Master-Key"],
+    expose_headers=["X-Prompts-Used"],
 )
 
 # --- Routers ---

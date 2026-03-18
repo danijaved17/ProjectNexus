@@ -68,12 +68,17 @@ async def run_judge(prompt: str, responses: list[dict]) -> dict:
     `responses` is a list of dicts with keys: model, label, content, latency_ms
     Returns a dict with judge results plus the original responses annotated with scores.
     """
-    # Map responses to blind labels — dynamic so 2 or 3 responses both work
-    labels = ["A", "B", "C"][:len(responses)]
-    label_map = {labels[i]: responses[i] for i in range(len(responses))}
+    # Shuffle before labeling to eliminate positional bias in the judge
+    # (without this, asyncio.gather always returns the same order so the judge
+    # would consistently see the same model as "C" and tend to favour it)
+    shuffled = responses.copy()
+    random.shuffle(shuffled)
+
+    labels = ["A", "B", "C"][:len(shuffled)]
+    label_map = {labels[i]: shuffled[i] for i in range(len(shuffled))}
 
     response_blocks = "\n\n".join(
-        f"Response {labels[i]}:\n{responses[i]['content']}" for i in range(len(responses))
+        f"Response {labels[i]}:\n{shuffled[i]['content']}" for i in range(len(shuffled))
     )
     user_message = f"User prompt: {prompt}\n\n{response_blocks}"
 
@@ -109,8 +114,8 @@ async def run_judge(prompt: str, responses: list[dict]) -> dict:
     sorted_labels = sorted(labels, key=lambda l: scores[l]["total"], reverse=True)
     top, second = sorted_labels[0], sorted_labels[1]
 
-    # Tie detection: if gap ≤ 8, pick winner randomly between them
-    is_tied = (scores[top]["total"] - scores[second]["total"]) <= 8
+    # Tie detection: only truly tied scores (≤ 2 pts) get random resolution
+    is_tied = (scores[top]["total"] - scores[second]["total"]) <= 2
     winner_label = random.choice([top, second]) if is_tied else top
 
     # Annotate each response with its score and winner flag
@@ -122,12 +127,17 @@ async def run_judge(prompt: str, responses: list[dict]) -> dict:
             "is_winner": (label == winner_label),
         })
 
+    # Replace blind labels ("Response A") with real model names in the reason
+    judge_reason = result["judge_reason"]
+    for label, response in label_map.items():
+        judge_reason = judge_reason.replace(f"Response {label}", response["model"])
+
     return {
         "prompt_type": prompt_type,
         "winner_label": winner_label,
         "winner_content": label_map[winner_label]["content"],
         "is_tied": is_tied,
-        "judge_reason": result["judge_reason"],
+        "judge_reason": judge_reason,
         "follow_up": result.get("follow_up"),
         "responses": annotated,  # All 3 with scores + is_winner flags
     }

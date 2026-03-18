@@ -10,21 +10,43 @@ Flow:
 """
 
 import json
-from fastapi import APIRouter
+import asyncio
+import os
+from fastapi import APIRouter, Request, HTTPException
+from fastapi.responses import JSONResponse
 from sse_starlette.sse import EventSourceResponse
 
 from models.schemas import ChatRequest
 from services.orchestrator import fan_out
 from services.judge import run_judge
+from services.term_extractor import extract_terms
+from services.rate_limiter import check_and_increment
 import services.supabase_client as db
 
 router = APIRouter()
 
+_MASTER_KEY = os.environ.get("MASTER_KEY", "")
+
 
 @router.post("/chat")
-async def handle_chat(request: ChatRequest):
+async def handle_chat(request: ChatRequest, req: Request):
     """Accepts a prompt, fans out to 3 models, judges, and streams SSE events."""
-    return EventSourceResponse(_stream(request))
+    master_key = req.headers.get("X-Master-Key", "")
+    is_master = bool(_MASTER_KEY and master_key == _MASTER_KEY)
+
+    prompts_used: int | None = None
+
+    if not is_master:
+        session_id = req.headers.get("X-Session-Id", "")
+        if not session_id:
+            return JSONResponse(status_code=400, content={"detail": "missing_session_id"})
+        # May raise 429 with detail "session_limit" or "global_limit"
+        prompts_used = await check_and_increment(session_id)
+
+    response = EventSourceResponse(_stream(request))
+    if prompts_used is not None:
+        response.headers["X-Prompts-Used"] = str(prompts_used)
+    return response
 
 
 async def _stream(request: ChatRequest):
@@ -90,6 +112,10 @@ async def _stream(request: ChatRequest):
 
         # --- Step 6: Stream SSE events ---
 
+        # Kick off term extraction concurrently with token streaming.
+        # By the time all tokens finish streaming (~3s), the extraction call (~1s) is already done.
+        terms_task = asyncio.create_task(extract_terms(judge_result["winner_content"]))
+
         # Stream the winning response word-by-word as `token` events.
         # Models are called non-streaming (full response at once), so we simulate
         # streaming by chunking the complete text into words.
@@ -98,6 +124,10 @@ async def _stream(request: ChatRequest):
             # Re-add the space between words (except before the first word)
             chunk = word if i == 0 else " " + word
             yield {"event": "token", "data": json.dumps({"text": chunk})}
+            await asyncio.sleep(0.02)  # 20ms between words so browser receives tokens incrementally
+
+        # By now the term extraction task should be complete
+        terms = await terms_task
 
         # Emit the scores event with all 3 responses + judge metadata
         scores_payload = {
@@ -118,6 +148,10 @@ async def _stream(request: ChatRequest):
         # Emit follow_up event only if the judge produced a question
         if judge_result["follow_up"]:
             yield {"event": "follow_up", "data": json.dumps({"question": judge_result["follow_up"]})}
+
+        # Emit terms only if the extractor found any complex terms
+        if terms:
+            yield {"event": "terms", "data": json.dumps({"terms": terms})}
 
         # Signal the client that the stream is complete
         yield {"event": "done", "data": json.dumps({})}
