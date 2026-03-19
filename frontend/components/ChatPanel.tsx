@@ -47,15 +47,17 @@ interface LandingInputProps {
   isLoading: boolean;
   promptsUsed: number;
   isMaster: boolean;
+  globalRemaining: number | null;
   onChange: (val: string) => void;
   onKeyDown: (e: React.KeyboardEvent<HTMLTextAreaElement>) => void;
   onSend: () => void;
 }
 
-function LandingInput({ input, isLoading, promptsUsed, isMaster, onChange, onKeyDown, onSend }: LandingInputProps) {
+function LandingInput({ input, isLoading, promptsUsed, isMaster, globalRemaining, onChange, onKeyDown, onSend }: LandingInputProps) {
   const taRef = useRef<HTMLTextAreaElement>(null);
   const [focused, setFocused] = useState(false);
-  const limitReached = !isMaster && promptsUsed >= SESSION_LIMIT;
+  const globalLocked = !isMaster && globalRemaining !== null && globalRemaining <= 0;
+  const limitReached = !isMaster && (promptsUsed >= SESSION_LIMIT || globalLocked);
   const active = focused || input.length > 0;
 
   useEffect(() => {
@@ -98,9 +100,14 @@ function LandingInput({ input, isLoading, promptsUsed, isMaster, onChange, onKey
       <div className={`flex items-center justify-between mt-2 px-1 transition-opacity duration-200 ${active ? "opacity-100" : "opacity-0"}`}>
         <PromptCounter used={promptsUsed} isMaster={isMaster} />
         <span className="text-[#333] text-xs">
-          {limitReached ? "Open a new tab to start a fresh session." : "Enter to send · Shift+Enter for newline"}
+          {globalLocked ? "Demo capacity reached." : limitReached ? "Open a new tab for a fresh session." : "Enter to send · Shift+Enter for newline"}
         </span>
       </div>
+      {!isMaster && globalRemaining !== null && (
+        <p className={`text-center text-xs mt-3 ${globalRemaining <= 5 ? "text-amber-500/70" : "text-[#444]"}`}>
+          {globalRemaining > 0 ? `${globalRemaining} demo prompts remaining` : "Demo capacity reached — check back later"}
+        </p>
+      )}
     </div>
   );
 }
@@ -113,14 +120,16 @@ interface InputBarProps {
   isLoading: boolean;
   promptsUsed: number;
   isMaster: boolean;
+  globalRemaining: number | null;
   onChange: (val: string) => void;
   onKeyDown: (e: React.KeyboardEvent<HTMLTextAreaElement>) => void;
   onSend: () => void;
 }
 
-function InputBar({ input, isLoading, promptsUsed, isMaster, onChange, onKeyDown, onSend }: InputBarProps) {
+function InputBar({ input, isLoading, promptsUsed, isMaster, globalRemaining, onChange, onKeyDown, onSend }: InputBarProps) {
   const taRef = useRef<HTMLTextAreaElement>(null);
-  const limitReached = !isMaster && promptsUsed >= SESSION_LIMIT;
+  const globalLocked = !isMaster && globalRemaining !== null && globalRemaining <= 0;
+  const limitReached = !isMaster && (promptsUsed >= SESSION_LIMIT || globalLocked);
 
   useEffect(() => {
     const ta = taRef.current;
@@ -229,6 +238,7 @@ interface Props {
   followUp: string | null;
   promptsUsed: number;
   isMaster: boolean;
+  globalRemaining: number | null;
   sidebarOpen: boolean;
   onOpenSidebar: () => void;
   onSend: (prompt: string) => void;
@@ -244,6 +254,7 @@ export default function ChatPanel({
   followUp,
   promptsUsed,
   isMaster,
+  globalRemaining,
   sidebarOpen,
   onOpenSidebar,
   onSend,
@@ -301,28 +312,51 @@ export default function ChatPanel({
     isLoading,
     promptsUsed,
     isMaster,
+    globalRemaining,
     onChange: setInput,
     onKeyDown: handleKeyDown,
     onSend: handleSend,
   };
 
+  const globalLocked = !isMaster && globalRemaining !== null && globalRemaining <= 0;
+
   return (
     <div className="flex-1 flex flex-col h-full min-w-0">
       {/* Top bar: always on mobile, on desktop only when sidebar is closed */}
-      <div className={`flex items-center px-4 py-3 border-b border-[#2a2a2a] ${sidebarOpen ? "md:hidden" : ""}`}>
-        <button
-          onClick={onOpenSidebar}
-          className="text-[#555] hover:text-[#f0f0f0] transition-colors mr-3"
-          aria-label="Open sidebar"
-        >
-          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
-          </svg>
-        </button>
-        <span className="text-[#888] text-sm font-medium">Nexus</span>
+      <div className={`flex items-center justify-between px-4 py-3 border-b border-[#2a2a2a] ${sidebarOpen ? "md:hidden" : ""}`}>
+        <div className="flex items-center">
+          <button
+            onClick={onOpenSidebar}
+            className="text-[#555] hover:text-[#f0f0f0] transition-colors mr-3"
+            aria-label="Open sidebar"
+          >
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+          </button>
+          <span className="text-[#888] text-sm font-medium">Nexus</span>
+        </div>
+        {!isMaster && globalRemaining !== null && (
+          <span className={`text-xs tabular-nums ${globalRemaining <= 5 ? "text-amber-500/80" : "text-[#444]"}`}>
+            {globalRemaining} prompts left
+          </span>
+        )}
       </div>
 
-      {isLanding ? (
+      {/* Global lockout screen */}
+      {globalLocked ? (
+        <div className="flex-1 flex flex-col items-center justify-center px-6 text-center">
+          <div className="w-10 h-10 rounded-full bg-[#1e1e1e] border border-[#2a2a2a] flex items-center justify-center mb-4">
+            <svg className="w-5 h-5 text-[#555]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+            </svg>
+          </div>
+          <h2 className="text-[#f0f0f0] text-base font-semibold mb-2">Demo Capacity Reached</h2>
+          <p className="text-[#555] text-sm max-w-xs leading-relaxed">
+            The demo has hit its prompt limit for now. The developer will reset it soon — check back later.
+          </p>
+        </div>
+      ) : isLanding ? (
         <LandingView {...inputProps} onSendDirect={onSend} />
       ) : (
         <>
@@ -365,3 +399,4 @@ export default function ChatPanel({
     </div>
   );
 }
+

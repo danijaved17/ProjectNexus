@@ -20,12 +20,18 @@ from models.schemas import ChatRequest
 from services.orchestrator import fan_out
 from services.judge import run_judge
 from services.term_extractor import extract_terms
-from services.rate_limiter import check_and_increment
+from services.rate_limiter import check_and_increment, get_global_status
 import services.supabase_client as db
 
 router = APIRouter()
 
 _MASTER_KEY = os.environ.get("MASTER_KEY", "")
+
+
+@router.get("/demo/status")
+async def demo_status():
+    """Returns remaining global prompt quota for demo users."""
+    return await get_global_status()
 
 
 @router.post("/chat")
