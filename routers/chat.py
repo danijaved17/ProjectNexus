@@ -9,10 +9,14 @@ Flow:
   5. Stream SSE events: token → scores → follow_up (if any) → done
 """
 
+import hmac
 import json
 import asyncio
 import os
+import logging
 from fastapi import APIRouter, Request, HTTPException
+
+logger = logging.getLogger(__name__)
 from fastapi.responses import JSONResponse
 from sse_starlette.sse import EventSourceResponse
 
@@ -45,7 +49,7 @@ async def _run_models_and_judge(prompt: str, history: list) -> tuple:
 async def handle_chat(request: ChatRequest, req: Request):
     """Accepts a prompt, fans out to 3 models, judges, and streams SSE events."""
     master_key = req.headers.get("X-Master-Key", "")
-    is_master = bool(_MASTER_KEY and master_key == _MASTER_KEY)
+    is_master = bool(_MASTER_KEY and hmac.compare_digest(master_key, _MASTER_KEY))
 
     prompts_used: int | None = None
 
@@ -174,7 +178,6 @@ async def _stream(request: ChatRequest):
         yield {"event": "done", "data": json.dumps({})}
 
     except Exception as e:
-        # Forward the error to the client before closing the stream —
-        # without this the frontend just sees a dropped connection with no context
-        yield {"event": "error", "data": json.dumps({"message": str(e)})}
-        raise  # Re-raise so the server logs still show the full traceback
+        logger.error("Stream error: %s", e, exc_info=True)
+        yield {"event": "error", "data": json.dumps({"message": "An error occurred. Please try again."})}
+        raise

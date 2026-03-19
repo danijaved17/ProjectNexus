@@ -5,6 +5,7 @@ Conversation management routes:
   DELETE /conversations/{id} — delete conversation + cascade
 """
 
+from uuid import UUID
 from fastapi import APIRouter
 import services.supabase_client as db
 
@@ -18,17 +19,17 @@ async def list_conversations():
 
 
 @router.get("/conversations/{conversation_id}")
-async def get_conversation(conversation_id: str):
+async def get_conversation(conversation_id: UUID):
     """Return all messages in a conversation ordered oldest first."""
-    return db.get_messages(conversation_id)
+    return db.get_messages(str(conversation_id))
 
 
 @router.delete("/conversations/{conversation_id}")
-async def delete_conversation(conversation_id: str):
+async def delete_conversation(conversation_id: UUID):
     """
     Delete a conversation and all related data.
     Cascade is handled at the DB level (foreign key ON DELETE CASCADE),
     so this single delete removes messages, model_responses, and follow_ups too.
     """
-    db.delete_conversation(conversation_id)
-    return {"deleted": conversation_id}
+    db.delete_conversation(str(conversation_id))
+    return {"deleted": str(conversation_id)}
