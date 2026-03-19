@@ -30,6 +30,14 @@ from fastapi import HTTPException
 SESSION_LIMIT = 5
 
 
+async def get_global_status() -> dict:
+    """Returns { used, max, remaining } from demo_config."""
+    config = await asyncio.to_thread(_get_config)
+    used = config["total_prompts_used"]
+    max_total = config["max_total_prompts"]
+    return {"used": used, "max": max_total, "remaining": max(0, max_total - used)}
+
+
 async def check_and_increment(session_id: str) -> int:
     """
     Enforce per-session and global limits, then increment both counters.
