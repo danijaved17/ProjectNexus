@@ -15,10 +15,10 @@ import asyncio
 import os
 import logging
 from fastapi import APIRouter, Request, HTTPException
-
-logger = logging.getLogger(__name__)
 from fastapi.responses import JSONResponse
 from sse_starlette.sse import EventSourceResponse
+
+logger = logging.getLogger(__name__)
 
 from models.schemas import ChatRequest
 from services.orchestrator import fan_out
@@ -61,6 +61,8 @@ async def handle_chat(request: ChatRequest, req: Request):
         prompts_used = await check_and_increment(session_id)
 
     response = EventSourceResponse(_stream(request))
+    response.headers["X-Accel-Buffering"] = "no"  # Disable nginx buffering on Railway
+    response.headers["Cache-Control"] = "no-cache"
     if prompts_used is not None:
         response.headers["X-Prompts-Used"] = str(prompts_used)
     return response
