@@ -1,10 +1,10 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional
 from uuid import UUID
 
 
 class ChatRequest(BaseModel):
-    prompt: str
+    prompt: str = Field(..., max_length=2000)
     conversation_id: Optional[UUID] = None
 
 
