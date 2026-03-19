@@ -207,7 +207,9 @@ export function useChat() {
             try {
               const payload = JSON.parse(raw);
 
-              if (currentEvent === "token") {
+              if (currentEvent === "ping") {
+                // keepalive — ignore
+              } else if (currentEvent === "token") {
                 streamingRef.current += payload.text;
                 setStreamingText(streamingRef.current);
               } else if (currentEvent === "scores") {
