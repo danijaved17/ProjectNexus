@@ -20,12 +20,25 @@ from models.schemas import ChatRequest
 from services.orchestrator import fan_out
 from services.judge import run_judge
 from services.term_extractor import extract_terms
-from services.rate_limiter import check_and_increment
+from services.rate_limiter import check_and_increment, get_global_status
 import services.supabase_client as db
 
 router = APIRouter()
 
 _MASTER_KEY = os.environ.get("MASTER_KEY", "")
+
+
+@router.get("/demo/status")
+async def demo_status():
+    """Returns remaining global prompt quota for demo users."""
+    return await get_global_status()
+
+
+async def _run_models_and_judge(prompt: str, history: list) -> tuple:
+    """Run fan-out and judge sequentially, returned as a tuple for the ping loop."""
+    model_results = await fan_out(prompt, history)
+    judge_result = await run_judge(prompt, model_results)
+    return model_results, judge_result
 
 
 @router.post("/chat")
@@ -61,22 +74,26 @@ async def _stream(request: ChatRequest):
     silently dropping the connection.
     """
     try:
+        # Ping immediately so Railway/proxies know the connection is alive
+        yield {"event": "ping", "data": json.dumps({})}
+
         conversation_id = str(request.conversation_id) if request.conversation_id else None
 
         # --- Step 1: Resolve conversation ---
         if not conversation_id:
-            # Truncate prompt to 60 chars as the conversation title
             title = request.prompt[:60]
             conversation_id = db.create_conversation(title)
 
         # --- Step 2: Load conversation history for context ---
         history = db.get_conversation_history(conversation_id)
 
-        # --- Step 3: Fan out to all 3 models concurrently ---
-        model_results = await fan_out(request.prompt, history)
-
-        # --- Step 4: Run judge over the 3 responses ---
-        judge_result = await run_judge(request.prompt, model_results)
+        # --- Step 3: Fan out to all 3 models + judge concurrently,
+        #     sending keepalive pings every 5s so the proxy doesn't drop the connection ---
+        work_task = asyncio.create_task(_run_models_and_judge(request.prompt, history))
+        while not work_task.done():
+            yield {"event": "ping", "data": json.dumps({})}
+            await asyncio.sleep(5)
+        model_results, judge_result = await work_task
 
         # --- Step 5: Write all DB rows ---
 
