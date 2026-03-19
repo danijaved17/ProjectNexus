@@ -15,6 +15,7 @@ export default function Home() {
     terms,
     isLoading,
     conversationId,
+    conversations,
     error,
     promptsUsed,
     isMaster,
@@ -22,6 +23,7 @@ export default function Home() {
     sendMessage,
     resetChat,
     loadConversation,
+    removeConversation,
   } = useChat();
 
   // Default closed on mobile, open on desktop — resolved client-side to avoid SSR mismatch
@@ -33,10 +35,12 @@ export default function Home() {
   return (
     <div className="flex h-dvh bg-[#0f0f0f] overflow-hidden">
       <ConversationSidebar
+        conversations={conversations}
         activeId={conversationId}
         isOpen={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
         onSelect={(id, msgs) => loadConversation(id, msgs)}
+        onDelete={removeConversation}
         onNewChat={resetChat}
       />
 

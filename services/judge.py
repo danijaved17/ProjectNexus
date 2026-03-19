@@ -127,10 +127,14 @@ async def run_judge(prompt: str, responses: list[dict]) -> dict:
             "is_winner": (label == winner_label),
         })
 
-    # Replace blind labels ("Response A") with real model names in the reason
+    # Replace blind labels with real model names in the reason (case-insensitive)
     judge_reason = result["judge_reason"]
     for label, response in label_map.items():
-        judge_reason = judge_reason.replace(f"Response {label}", response["model"])
+        name = response["model"]
+        # Replace "Response A", "response a", "Response A's", etc.
+        judge_reason = re.sub(rf"\bResponse {label}\b", name, judge_reason, flags=re.IGNORECASE)
+        # Also replace bare label like "A was best" → "gpt-4o-mini was best"
+        judge_reason = re.sub(rf"\b{label}\b(?=\s+(was|is|had|provided|offered|gave|demonstrated|showed|performed|stands))", name, judge_reason)
 
     return {
         "prompt_type": prompt_type,

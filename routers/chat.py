@@ -90,6 +90,9 @@ async def _stream(request: ChatRequest):
             title = request.prompt[:60]
             conversation_id = db.create_conversation(title)
 
+        # Emit conversation_id so the frontend can track this conversation
+        yield {"event": "conversation_id", "data": json.dumps({"id": conversation_id, "title": request.prompt[:60]})}
+
         # --- Step 2: Load conversation history for context ---
         history = db.get_conversation_history(conversation_id)
 
