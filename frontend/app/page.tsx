@@ -18,6 +18,7 @@ export default function Home() {
     error,
     promptsUsed,
     isMaster,
+    globalRemaining,
     sendMessage,
     resetChat,
     loadConversation,
@@ -49,6 +50,7 @@ export default function Home() {
         followUp={followUp}
         promptsUsed={promptsUsed}
         isMaster={isMaster}
+        globalRemaining={globalRemaining}
         sidebarOpen={sidebarOpen}
         onOpenSidebar={() => setSidebarOpen(true)}
         onSend={sendMessage}

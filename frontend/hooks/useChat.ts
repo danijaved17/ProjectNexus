@@ -61,12 +61,19 @@ export function useChat() {
   const [error, setError] = useState<string | null>(null);
   const [promptsUsed, setPromptsUsedState] = useState(0);
   const [isMaster, setIsMaster] = useState(false);
+  const [globalRemaining, setGlobalRemaining] = useState<number | null>(null);
 
   // Ref so the streaming text is always current inside the async closure
   const streamingRef = useRef("");
 
   // On mount: read session state + handle ?master=KEY URL param
   useEffect(() => {
+    // Fetch global remaining quota
+    fetch(`${BACKEND}/demo/status`)
+      .then((r) => r.json())
+      .then((d) => setGlobalRemaining(d.remaining ?? null))
+      .catch(() => {});
+
     // Initialise prompt counter from storage
     setPromptsUsedState(getPromptsUsed());
 
@@ -134,6 +141,7 @@ export function useChat() {
           if (detail === "session_limit") {
             setError("You've used all 5 demo prompts for this session. Open a new browser tab to start a fresh session.");
           } else if (detail === "global_limit") {
+            setGlobalRemaining(0);
             setError("Demo capacity reached. The developer will reset this soon — check back later!");
           } else {
             setError("Rate limit reached.");
@@ -257,6 +265,7 @@ export function useChat() {
     error,
     promptsUsed,
     isMaster,
+    globalRemaining,
     sendMessage,
     resetChat,
     loadConversation,
