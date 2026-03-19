@@ -56,8 +56,7 @@ interface LandingInputProps {
 function LandingInput({ input, isLoading, promptsUsed, isMaster, globalRemaining, onChange, onKeyDown, onSend }: LandingInputProps) {
   const taRef = useRef<HTMLTextAreaElement>(null);
   const [focused, setFocused] = useState(false);
-  const globalLocked = !isMaster && globalRemaining !== null && globalRemaining <= 0;
-  const limitReached = !isMaster && (promptsUsed >= SESSION_LIMIT || globalLocked);
+  const limitReached = !isMaster && (promptsUsed >= SESSION_LIMIT || (globalRemaining !== null && globalRemaining <= 0));
   const active = focused || input.length > 0;
 
   useEffect(() => {
@@ -100,12 +99,12 @@ function LandingInput({ input, isLoading, promptsUsed, isMaster, globalRemaining
       <div className={`flex items-center justify-between mt-2 px-1 transition-opacity duration-200 ${active ? "opacity-100" : "opacity-0"}`}>
         <PromptCounter used={promptsUsed} isMaster={isMaster} />
         <span className="text-[#333] text-xs">
-          {globalLocked ? "Demo capacity reached." : limitReached ? "Open a new tab for a fresh session." : "Enter to send · Shift+Enter for newline"}
+          {limitReached ? "Open a new tab for a fresh session." : "Enter to send · Shift+Enter for newline"}
         </span>
       </div>
       {!isMaster && globalRemaining !== null && (
         <p className={`text-center text-xs mt-3 ${globalRemaining <= 5 ? "text-amber-500/70" : "text-[#444]"}`}>
-          {globalRemaining > 0 ? `${globalRemaining} demo prompts remaining` : "Demo capacity reached — check back later"}
+          {globalRemaining > 0 ? `${globalRemaining} demo prompts remaining globally` : "Demo capacity reached — check back later"}
         </p>
       )}
     </div>
@@ -128,8 +127,7 @@ interface InputBarProps {
 
 function InputBar({ input, isLoading, promptsUsed, isMaster, globalRemaining, onChange, onKeyDown, onSend }: InputBarProps) {
   const taRef = useRef<HTMLTextAreaElement>(null);
-  const globalLocked = !isMaster && globalRemaining !== null && globalRemaining <= 0;
-  const limitReached = !isMaster && (promptsUsed >= SESSION_LIMIT || globalLocked);
+  const limitReached = !isMaster && (promptsUsed >= SESSION_LIMIT || (globalRemaining !== null && globalRemaining <= 0));
 
   useEffect(() => {
     const ta = taRef.current;
@@ -307,6 +305,8 @@ export default function ChatPanel({
     setInput(`Explain "${term}" in simple terms`);
   }
 
+  const globalLocked = !isMaster && globalRemaining !== null && globalRemaining <= 0;
+
   const inputProps = {
     input,
     isLoading,
@@ -318,11 +318,9 @@ export default function ChatPanel({
     onSend: handleSend,
   };
 
-  const globalLocked = !isMaster && globalRemaining !== null && globalRemaining <= 0;
-
   return (
     <div className="flex-1 flex flex-col h-full min-w-0">
-      {/* Top bar: always on mobile, on desktop only when sidebar is closed */}
+      {/* Top bar */}
       <div className={`flex items-center justify-between px-4 py-3 border-b border-[#2a2a2a] ${sidebarOpen ? "md:hidden" : ""}`}>
         <div className="flex items-center">
           <button
@@ -353,7 +351,7 @@ export default function ChatPanel({
           </div>
           <h2 className="text-[#f0f0f0] text-base font-semibold mb-2">Demo Capacity Reached</h2>
           <p className="text-[#555] text-sm max-w-xs leading-relaxed">
-            The demo has hit its prompt limit for now. The developer will reset it soon — check back later.
+            The demo has hit its prompt limit. The developer will reset it soon — check back later.
           </p>
         </div>
       ) : isLanding ? (
@@ -383,7 +381,6 @@ export default function ChatPanel({
               </div>
             )}
 
-            {/* Mobile-only inline scores — hidden on md+ where side panel shows */}
             {scores && (
               <div className="md:hidden mt-4">
                 <ScoresPanel scores={scores} followUp={followUp} onFollowUp={onSend} inline />
@@ -399,4 +396,3 @@ export default function ChatPanel({
     </div>
   );
 }
-
