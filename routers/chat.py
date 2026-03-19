@@ -104,37 +104,34 @@ async def _stream(request: ChatRequest):
             await asyncio.sleep(5)
         model_results, judge_result = await work_task
 
-        # --- Step 5: Write all DB rows ---
-
-        # Save the user message (now we know prompt_type from the judge)
-        user_msg_id = db.save_message(
-            conversation_id=conversation_id,
-            role="user",
-            content=request.prompt,
-            prompt_type=judge_result["prompt_type"],
-        )
-
-        # Save the winning assistant message
-        assistant_msg_id = db.save_message(
-            conversation_id=conversation_id,
-            role="assistant",
-            content=judge_result["winner_content"],
-            prompt_type=judge_result["prompt_type"],
-        )
-
-        # Save all 3 model responses linked to the assistant message
-        db.save_model_responses(
-            message_id=assistant_msg_id,
-            responses=judge_result["responses"],
-            judge_reason=judge_result["judge_reason"],
-        )
-
-        # Save follow-up if the judge generated one
-        if judge_result["follow_up"]:
-            db.save_follow_up(
-                message_id=assistant_msg_id,
-                question=judge_result["follow_up"],
+        # --- Step 5: Write all DB rows in the background ---
+        # Fire-and-forget so DB writes don't block token streaming from starting.
+        # Streaming takes ~2–3s, which is more than enough for the writes to finish.
+        def _do_db_writes():
+            user_msg_id = db.save_message(
+                conversation_id=conversation_id,
+                role="user",
+                content=request.prompt,
+                prompt_type=judge_result["prompt_type"],
             )
+            assistant_msg_id = db.save_message(
+                conversation_id=conversation_id,
+                role="assistant",
+                content=judge_result["winner_content"],
+                prompt_type=judge_result["prompt_type"],
+            )
+            db.save_model_responses(
+                message_id=assistant_msg_id,
+                responses=judge_result["responses"],
+                judge_reason=judge_result["judge_reason"],
+            )
+            if judge_result["follow_up"]:
+                db.save_follow_up(
+                    message_id=assistant_msg_id,
+                    question=judge_result["follow_up"],
+                )
+
+        asyncio.create_task(asyncio.to_thread(_do_db_writes))
 
         # --- Step 6: Stream SSE events ---
 
