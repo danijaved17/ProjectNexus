@@ -50,6 +50,11 @@ function setPromptsUsed(n: number) {
 
 // ---------------------------------------------------------------------------
 
+export interface ConversationItem {
+  id: string;
+  title: string;
+}
+
 export function useChat() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [streamingText, setStreamingText] = useState("");
@@ -58,6 +63,7 @@ export function useChat() {
   const [terms, setTerms] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [conversationId, setConversationId] = useState<string | null>(null);
+  const [conversations, setConversations] = useState<ConversationItem[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [promptsUsed, setPromptsUsedState] = useState(0);
   const [isMaster, setIsMaster] = useState(false);
@@ -209,6 +215,13 @@ export function useChat() {
 
               if (currentEvent === "ping") {
                 // keepalive — ignore
+              } else if (currentEvent === "conversation_id") {
+                setConversationId(payload.id);
+                setConversations((prev) =>
+                  prev.find((c) => c.id === payload.id)
+                    ? prev
+                    : [...prev, { id: payload.id, title: payload.title }]
+                );
               } else if (currentEvent === "token") {
                 streamingRef.current += payload.text;
                 setStreamingText(streamingRef.current);
@@ -242,6 +255,7 @@ export function useChat() {
     setFollowUp(null);
     setTerms([]);
     setConversationId(null);
+    // Do NOT clear conversations — sidebar history persists for the whole session
     setError(null);
     setIsLoading(false);
     streamingRef.current = "";
@@ -256,6 +270,10 @@ export function useChat() {
     setError(null);
   }
 
+  function removeConversation(id: string) {
+    setConversations((prev) => prev.filter((c) => c.id !== id));
+  }
+
   return {
     messages,
     streamingText,
@@ -264,6 +282,7 @@ export function useChat() {
     terms,
     isLoading,
     conversationId,
+    conversations,
     error,
     promptsUsed,
     isMaster,
@@ -271,6 +290,7 @@ export function useChat() {
     sendMessage,
     resetChat,
     loadConversation,
+    removeConversation,
     setConversationId,
   };
 }

@@ -1,14 +1,16 @@
 "use client";
 
 import { useState } from "react";
-import { Conversation, getMessages, deleteConversation } from "@/lib/api";
-import { ChatMessage } from "@/hooks/useChat";
+import { getMessages, deleteConversation } from "@/lib/api";
+import { ChatMessage, ConversationItem } from "@/hooks/useChat";
 
 interface Props {
+  conversations: ConversationItem[];
   activeId: string | null;
   isOpen: boolean;
   onClose: () => void;
   onSelect: (id: string, messages: ChatMessage[]) => void;
+  onDelete: (id: string) => void;
   onNewChat: () => void;
 }
 
@@ -23,7 +25,7 @@ function SidebarContent({
   onDelete,
 }: {
   activeId: string | null;
-  conversations: Conversation[];
+  conversations: ConversationItem[];
   hoveredId: string | null;
   onSelect: (id: string) => void;
   onNewChat: () => void;
@@ -90,8 +92,7 @@ function SidebarContent({
   );
 }
 
-export default function ConversationSidebar({ activeId, isOpen, onClose, onSelect, onNewChat }: Props) {
-  const [conversations, setConversations] = useState<Conversation[]>([]);
+export default function ConversationSidebar({ conversations, activeId, isOpen, onClose, onSelect, onDelete, onNewChat }: Props) {
   const [hoveredId, setHoveredId] = useState<string | null>(null);
 
   async function handleSelect(id: string) {
@@ -107,7 +108,7 @@ export default function ConversationSidebar({ activeId, isOpen, onClose, onSelec
   async function handleDelete(e: React.MouseEvent, id: string) {
     e.stopPropagation();
     await deleteConversation(id);
-    setConversations((prev) => prev.filter((c) => c.id !== id));
+    onDelete(id);
     if (activeId === id) onNewChat();
   }
 
